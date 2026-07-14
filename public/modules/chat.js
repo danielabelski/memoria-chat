@@ -46,6 +46,7 @@ function clearThinkingStatus(bubble) {
 }
 
 export async function triggerAutoLearn(conv) {
+  if (state.currentConfig?.memory?.autoLearn === false) return;
   if (!conv || conv.messages.length < 2) return;
   const recent = conv.messages.slice(-4).map((m) => ({
     role: m.role,

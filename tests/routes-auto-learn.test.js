@@ -68,6 +68,18 @@ describe("POST /memory/auto-learn", () => {
     ...overrides,
   });
 
+  it("自动记录关闭 → 跳过且不调用模型", async () => {
+    config.readConfig.mockResolvedValue({ memory: { autoLearn: false } });
+    const res = createRes();
+
+    await getHandler()(createReq({ body: validBody() }), res);
+
+    expect(res._status).toBe(200);
+    expect(res._json).toEqual({ learned: [], skipped: "disabled" });
+    expect(autoLearn.tryAcquireCooldown).not.toHaveBeenCalled();
+    expect(clients.getClientForModel).not.toHaveBeenCalled();
+  });
+
   // === 验证 ===
 
   it("convId 缺失 → 400", async () => {

@@ -138,6 +138,14 @@ describe('normalizeConfig', () => {
   it('defaults context_window to 50', () => {
     expect(normalizeConfig({}).context_window).toBe(50);
   });
+
+  it('defaults memory.autoLearn to true for existing memory config blocks', () => {
+    expect(normalizeConfig({ memory: {} }).memory.autoLearn).toBe(true);
+  });
+
+  it('preserves memory.autoLearn=false', () => {
+    expect(normalizeConfig({ memory: { autoLearn: false } }).memory.autoLearn).toBe(false);
+  });
 });
 
 describe('getConversationPath', () => {

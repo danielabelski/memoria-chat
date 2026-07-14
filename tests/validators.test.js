@@ -408,10 +408,11 @@ describe('validateConfigPatch', () => {
   // --- memory config block ---
   it('accepts valid memory config block', () => {
     const result = validateConfigPatch({
-      memory: { decayIdleDays: 30, autoDecay: true, promotionUseCount: 5, promotionMinDays: 14 },
+      memory: { autoLearn: false, decayIdleDays: 30, autoDecay: true, promotionUseCount: 5, promotionMinDays: 14 },
     });
     expect(result.ok).toBe(true);
     expect(result.value.memory).toEqual({
+      autoLearn: false,
       decayIdleDays: 30,
       autoDecay: true,
       promotionUseCount: 5,
@@ -455,6 +456,13 @@ describe('validateConfigPatch', () => {
 
   it('returns error when autoDecay is not boolean', () => {
     expect(validateConfigPatch({ memory: { autoDecay: 'yes' } }).ok).toBe(false);
+  });
+
+  it('returns error when autoLearn is not boolean', () => {
+    expect(validateConfigPatch({ memory: { autoLearn: 'yes' } })).toEqual({
+      ok: false,
+      error: '`memory.autoLearn` must be a boolean.',
+    });
   });
 
   it('accepts empty memory object (no fields to update)', () => {
