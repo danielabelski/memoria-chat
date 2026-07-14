@@ -12,6 +12,26 @@ import { t } from "./i18n.js";
 
 export const MEMORY_CATEGORIES = ["identity", "preferences", "events"];
 
+// 每条消息的 markdown 渲染结果缓存（按 content / reasoning 分字段）。
+// 用 WeakMap：消息对象被回收时自动清理，不进 JSON / localStorage，不污染消息数据。
+// 源文本变化时（编辑 / 重新生成）src 不匹配，自动失效重算。
+const _mdCache = new WeakMap(); // msg -> { content?: {src, html}, reasoning?: {src, html} }
+
+function renderMarkdownCached(msg, field, source) {
+  const src = source || "";
+  let entry = _mdCache.get(msg);
+  if (entry && entry[field] && entry[field].src === src) {
+    return entry[field].html;
+  }
+  const html = renderMarkdown(src);
+  if (!entry) {
+    entry = {};
+    _mdCache.set(msg, entry);
+  }
+  entry[field] = { src, html };
+  return html;
+}
+
 // ===== SVG 图标 =====
 export const ICON_COPY = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
 export const ICON_CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
@@ -192,101 +212,7 @@ export function renderMessages() {
   messagesEl.innerHTML = "";
 
   conv.messages.forEach((msg, idx) => {
-    const div = document.createElement("div");
-    div.className = `message ${msg.role}`;
-    div.dataset.msgIndex = idx;
-    const bubble = document.createElement("div");
-    bubble.className = "bubble";
-
-    if (Array.isArray(msg.content)) {
-      // 多模态消息（user 或 assistant 都可能有图片）
-      const imgContainer = document.createElement("div");
-      imgContainer.className = "message-images";
-      const textParts = [];
-      msg.content.forEach((part) => {
-        if (part.type === "text") {
-          textParts.push(part.text);
-        } else if (part.type === "image_url") {
-          const img = document.createElement("img");
-          img.src = part.image_url.url;
-          img.onclick = () => showLightbox(part.image_url.url);
-          imgContainer.appendChild(img);
-        }
-      });
-      if (imgContainer.children.length > 0) div.appendChild(imgContainer);
-      const combinedText = textParts.join("\n").trim();
-      if (combinedText) {
-        if (msg.role === "user") {
-          const docInfo = extractDocMarker(combinedText);
-          if (docInfo) {
-            const cardWrapper = document.createElement("div");
-            cardWrapper.innerHTML = renderDocCard(docInfo.fileName);
-            div.appendChild(cardWrapper.firstChild);
-            if (docInfo.rest) {
-              const p = document.createElement("p");
-              p.textContent = docInfo.rest;
-              bubble.appendChild(p);
-            }
-          } else {
-            const p = document.createElement("p");
-            p.textContent = combinedText;
-            bubble.appendChild(p);
-          }
-        } else {
-          const contentContainer = document.createElement("div");
-          contentContainer.innerHTML = renderMarkdown(combinedText);
-          bubble.appendChild(contentContainer);
-        }
-      }
-    } else if (msg.role === "user") {
-      const docInfo = extractDocMarker(msg.content);
-      if (docInfo) {
-        const cardWrapper = document.createElement("div");
-        cardWrapper.innerHTML = renderDocCard(docInfo.fileName);
-        div.appendChild(cardWrapper.firstChild);
-        if (docInfo.rest) bubble.textContent = docInfo.rest;
-      } else {
-        bubble.textContent = msg.content;
-      }
-    } else {
-      // 历史消息的思考链折叠块
-      if (msg.reasoning) {
-        const details = document.createElement("details");
-        details.className = "thinking-block";
-        const summary = document.createElement("summary");
-        summary.textContent = t("label_thinking");
-        details.appendChild(summary);
-        const thinkingBody = document.createElement("div");
-        thinkingBody.className = "thinking-body";
-        thinkingBody.innerHTML = renderMarkdown(msg.reasoning);
-        details.appendChild(thinkingBody);
-        bubble.appendChild(details);
-      }
-      const contentContainer = document.createElement("div");
-      contentContainer.innerHTML = renderMarkdown(msg.content || "");
-      bubble.appendChild(contentContainer);
-      if (msg.meta) {
-        const metaEl = document.createElement("div");
-        metaEl.className = "message-meta";
-        const timeStr = formatMetaTime(msg.meta.timestamp);
-        if (msg.meta.model) {
-          const tokenStr = msg.meta.total_tokens ? `${msg.meta.total_tokens} tokens · ` : "";
-          metaEl.textContent = `${tokenStr}${msg.meta.model}${timeStr ? " · " + timeStr : ""}`;
-        } else if (timeStr) {
-          metaEl.textContent = timeStr;
-        } else if (msg.meta.elapsed) {
-          metaEl.textContent = `${msg.meta.elapsed}s`;
-        }
-        bubble.appendChild(metaEl);
-        appendMemoryIndicator(bubble, metaEl, msg.meta.memories);
-      }
-    }
-
-    if (bubble.childNodes.length > 0 || bubble.textContent) {
-      div.appendChild(bubble);
-    }
-    div.appendChild(createMsgToolbar(msg, idx));
-    messagesEl.appendChild(div);
+    messagesEl.appendChild(renderMessageElement(msg, idx));
   });
 
   // 插入摘要卡片
@@ -295,6 +221,116 @@ export function renderMessages() {
   }
 
   scrollToBottom(true);
+}
+
+// 把单条消息渲染成 DOM 元素。renderMessages（全量）与 appendMessageElement（增量追加）共用，
+// 避免两条路径逻辑分叉；assistant 的 markdown 渲染走 renderMarkdownCached 命中缓存。
+export function renderMessageElement(msg, idx) {
+  const div = document.createElement("div");
+  div.className = `message ${msg.role}`;
+  div.dataset.msgIndex = idx;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+
+  if (Array.isArray(msg.content)) {
+    // 多模态消息（user 或 assistant 都可能有图片）
+    const imgContainer = document.createElement("div");
+    imgContainer.className = "message-images";
+    const textParts = [];
+    msg.content.forEach((part) => {
+      if (part.type === "text") {
+        textParts.push(part.text);
+      } else if (part.type === "image_url") {
+        const img = document.createElement("img");
+        img.src = part.image_url.url;
+        img.onclick = () => showLightbox(part.image_url.url);
+        imgContainer.appendChild(img);
+      }
+    });
+    if (imgContainer.children.length > 0) div.appendChild(imgContainer);
+    const combinedText = textParts.join("\n").trim();
+    if (combinedText) {
+      if (msg.role === "user") {
+        const docInfo = extractDocMarker(combinedText);
+        if (docInfo) {
+          const cardWrapper = document.createElement("div");
+          cardWrapper.innerHTML = renderDocCard(docInfo.fileName);
+          div.appendChild(cardWrapper.firstChild);
+          if (docInfo.rest) {
+            const p = document.createElement("p");
+            p.textContent = docInfo.rest;
+            bubble.appendChild(p);
+          }
+        } else {
+          const p = document.createElement("p");
+          p.textContent = combinedText;
+          bubble.appendChild(p);
+        }
+      } else {
+        const contentContainer = document.createElement("div");
+        contentContainer.innerHTML = renderMarkdownCached(msg, "content", combinedText);
+        bubble.appendChild(contentContainer);
+      }
+    }
+  } else if (msg.role === "user") {
+    const docInfo = extractDocMarker(msg.content);
+    if (docInfo) {
+      const cardWrapper = document.createElement("div");
+      cardWrapper.innerHTML = renderDocCard(docInfo.fileName);
+      div.appendChild(cardWrapper.firstChild);
+      if (docInfo.rest) bubble.textContent = docInfo.rest;
+    } else {
+      bubble.textContent = msg.content;
+    }
+  } else {
+    // 历史消息的思考链折叠块
+    if (msg.reasoning) {
+      const details = document.createElement("details");
+      details.className = "thinking-block";
+      const summary = document.createElement("summary");
+      summary.textContent = t("label_thinking");
+      details.appendChild(summary);
+      const thinkingBody = document.createElement("div");
+      thinkingBody.className = "thinking-body";
+      thinkingBody.innerHTML = renderMarkdownCached(msg, "reasoning", msg.reasoning);
+      details.appendChild(thinkingBody);
+      bubble.appendChild(details);
+    }
+    const contentContainer = document.createElement("div");
+    contentContainer.innerHTML = renderMarkdownCached(msg, "content", msg.content || "");
+    bubble.appendChild(contentContainer);
+    if (msg.meta) {
+      const metaEl = document.createElement("div");
+      metaEl.className = "message-meta";
+      const timeStr = formatMetaTime(msg.meta.timestamp);
+      if (msg.meta.model) {
+        const tokenStr = msg.meta.total_tokens ? `${msg.meta.total_tokens} tokens · ` : "";
+        metaEl.textContent = `${tokenStr}${msg.meta.model}${timeStr ? " · " + timeStr : ""}`;
+      } else if (timeStr) {
+        metaEl.textContent = timeStr;
+      } else if (msg.meta.elapsed) {
+        metaEl.textContent = `${msg.meta.elapsed}s`;
+      }
+      bubble.appendChild(metaEl);
+      appendMemoryIndicator(bubble, metaEl, msg.meta.memories);
+    }
+  }
+
+  if (bubble.childNodes.length > 0 || bubble.textContent) {
+    div.appendChild(bubble);
+  }
+  div.appendChild(createMsgToolbar(msg, idx));
+  return div;
+}
+
+// 增量追加一条消息，避免发新消息时把整段历史推倒重画。
+export function appendMessageElement(msg, idx) {
+  // 首条消息时列表里可能还挂着 welcome，先摘掉
+  if (welcomeEl.parentNode === messagesEl) {
+    messagesEl.removeChild(welcomeEl);
+  }
+  welcomeEl.style.display = "none";
+  messagesEl.appendChild(renderMessageElement(msg, idx));
 }
 
 export function isNearBottom(threshold = 120) {
