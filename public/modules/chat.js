@@ -1,7 +1,7 @@
 import { state, getCurrentConv, messagesEl, inputEl, sendBtn } from "./state.js";
 import { apiFetch, showToast, readErrorMessage, renderMarkdown, formatMetaTime } from "./api.js";
 import { saveConversations, createConversation, renderChatList, saveLocalCache } from "./conversations.js";
-import { renderMessages, scrollToBottom, startStreamFollow, stopStreamFollow, isNearBottom, createMsgToolbar, getMessageText, appendMemoryIndicator, getCategoryLabel, renderSummaryCard } from "./render.js";
+import { renderMessages, appendMessageElement, scrollToBottom, startStreamFollow, stopStreamFollow, isNearBottom, createMsgToolbar, getMessageText, appendMemoryIndicator, getCategoryLabel, renderSummaryCard } from "./render.js";
 import { renderImagePreview } from "./images.js";
 import { clearPendingDocument, renderDocumentPreview } from "./files.js";
 import { t, getLang } from "./i18n.js";
@@ -380,7 +380,8 @@ export async function sendMessage() {
   }
 
   saveConversations(conv);
-  renderMessages();
+  // 增量追加刚发的这条 user 消息，不再把整段历史推倒重画（长对话卡顿主因）
+  appendMessageElement(userMessage, conv.messages.length - 1);
 
   // 添加占位符撑开底部，使用户消息可以滚动到视口顶部
   const scrollSpacer = document.createElement("div");
