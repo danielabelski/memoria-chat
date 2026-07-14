@@ -60,6 +60,12 @@ router.post("/memory/auto-learn", async (req, res) => {
       return res.status(400).json({ error: `messages[${i}] content too large (max 20000 chars)` });
     }
   }
+
+  const config = await readConfig();
+  if (config.memory?.autoLearn === false) {
+    return res.json({ learned: [], skipped: "disabled" });
+  }
+
   const totalLength = recentMessages.reduce((sum, m) => {
     const text =
       typeof m.content === "string"
@@ -130,7 +136,6 @@ router.post("/memory/auto-learn", async (req, res) => {
     const output = (response.choices[0]?.message?.content || "").trim();
 
     // Phase 2A: piggyback decay check — runs regardless of LLM output
-    const config = await readConfig();
     const decay = await performDecayCheck(config);
     const hasDecay = decay.decayed.length > 0 || decay.staled.length > 0;
 

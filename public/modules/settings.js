@@ -57,6 +57,7 @@ const configLanguage = document.getElementById("config-language");
 const configAiName = document.getElementById("config-ai-name");
 const configUserName = document.getElementById("config-user-name");
 const showMemoryRefsCheckbox = document.getElementById("show-memory-refs");
+const configAutoLearn = document.getElementById("config-auto-learn");
 
 // 衰减控件
 const configAutoDecay = document.getElementById("config-auto-decay");
@@ -549,7 +550,8 @@ export async function loadConfigPanel() {
     configCtx.value = config.context_window ?? 50;
     ctxVal.textContent = config.context_window ?? 50;
 
-    // 衰减设置
+    // 自动学习与衰减设置
+    configAutoLearn.checked = config.memory?.autoLearn !== false;
     configAutoDecay.checked = config.memory?.autoDecay ?? false;
     configDecayDays.value = config.memory?.decayIdleDays ?? 30;
     decayDaysVal.textContent = config.memory?.decayIdleDays ?? 30;
@@ -748,6 +750,7 @@ savePromptsBtn.addEventListener("click", async () => {
       auto_compress: configAutoCompress.checked,
       compress_keep_recent: parseInt(configKeepRecent.value, 10),
       memory: {
+        autoLearn: configAutoLearn.checked,
         autoDecay: configAutoDecay.checked,
         autoPromotion: configAutoPromotion.checked,
         decayIdleDays: parseInt(configDecayDays.value, 10),

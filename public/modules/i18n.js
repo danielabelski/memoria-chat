@@ -88,6 +88,7 @@ const zh = {
   label_ai_name: "AI 名称",
   label_user_name: "你的称呼",
   label_show_memory_refs: "显示记忆引用",
+  label_auto_memory_learning: "自动记录长期记忆",
   label_context_count: "上下文条数",
   label_decay_days: "空闲天数阈值",
   label_keep_recent: "保留最近消息条数",
@@ -133,6 +134,7 @@ const zh = {
 
   // ── Hints ──
   hint_memory_refs: "在 AI 回复底部显示引用了哪些记忆",
+  hint_auto_memory_learning: "关闭后停止从对话自动新增、更新或删除记忆；已有记忆和手动管理不受影响。",
   hint_temperature: "越低越确定/理性，越高越随机/有创意。网页版 ChatGPT 默认 1。",
   hint_top_p: "核采样：只从概率最高的前 P% 候选词中选择。0.1 = 只看前 10%，1 = 不限制。一般和 Temperature 二选一调。",
   hint_presence_penalty: "正值鼓励模型谈论新话题，避免重复。网页版默认 0。",
@@ -447,6 +449,7 @@ const en = {
   label_ai_name: "AI Name",
   label_user_name: "Your Name",
   label_show_memory_refs: "Show Memory References",
+  label_auto_memory_learning: "Automatically Save Long-term Memory",
   label_context_count: "Context Messages",
   label_decay_days: "Idle Days Threshold",
   label_keep_recent: "Keep Recent Messages",
@@ -492,6 +495,7 @@ const en = {
 
   // ── Hints ──
   hint_memory_refs: "Show which memories were referenced at the bottom of AI replies",
+  hint_auto_memory_learning: "When disabled, conversations no longer add, update, or delete memories. Existing memories and manual management remain available.",
   hint_temperature: "Lower = more deterministic, higher = more creative. ChatGPT default: 1.",
   hint_top_p: "Nucleus sampling: only consider top P% tokens. 0.1 = top 10%, 1 = no limit. Adjust this OR temperature.",
   hint_presence_penalty: "Positive values encourage new topics, reduce repetition. Default: 0.",

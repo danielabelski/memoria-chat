@@ -553,6 +553,7 @@ export class VoiceController {
   /** debounce 自动记忆：等对话停顿 15 秒后再触发，避免快速对话烧掉冷却期 */
   _triggerAutoLearn() {
     clearTimeout(this._autoLearnTimer);
+    if (this._config?.memory?.autoLearn === false) return;
     if (!this._conversationId || this._messages.length < 4) return;
     this._autoLearnTimer = setTimeout(() => this._doAutoLearn(), 15_000);
   }
@@ -560,6 +561,7 @@ export class VoiceController {
   /** 立即执行自动记忆（beforeunload 等场景） */
   _doAutoLearn() {
     clearTimeout(this._autoLearnTimer);
+    if (this._config?.memory?.autoLearn === false) return;
     if (!this._conversationId || this._messages.length < 4) return;
     const recent = this._messages.slice(-6).map(m => ({
       role: m.role,

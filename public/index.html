@@ -294,6 +294,11 @@
               <p class="config-hint" data-i18n="hint_memory_refs">在 AI 回复底部显示引用了哪些记忆</p>
             </div>
             <div class="config-section-title" data-i18n="section_long_term_memory">长期记忆</div>
+            <div class="config-row toggle-row">
+              <label for="config-auto-learn" data-i18n="label_auto_memory_learning">自动记录长期记忆</label>
+              <input type="checkbox" id="config-auto-learn" checked />
+              <p class="config-hint" data-i18n="hint_auto_memory_learning">关闭后停止从对话自动记录；已有记忆和手动管理不受影响。</p>
+            </div>
             <div class="memory-toolbar">
               <div class="memory-search-wrapper">
                 <input type="text" id="memory-search" placeholder="搜索记忆..." data-i18n-placeholder="ph_memory_search" />
